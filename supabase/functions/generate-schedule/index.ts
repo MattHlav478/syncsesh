@@ -3,6 +3,18 @@ import "https://deno.land/std@0.223.0/dotenv/load.ts";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 Deno.serve(async (req) => {
+  // Allow CORS preflight (OPTIONS) request
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      },
+    });
+  }
+
   try {
     if (!OPENAI_API_KEY) {
       return new Response("OpenAI API key is not configured.", { status: 500 });
@@ -46,12 +58,20 @@ Please output a structured agenda with times, activities, and notes in a clear f
     const generatedSchedule = choices?.[0]?.message?.content || "No schedule generated.";
 
     return new Response(JSON.stringify({ schedule: generatedSchedule }), {
-      headers: { "Content-Type": "application/json" },
       status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
     });
 
   } catch (error) {
     console.error(error);
-    return new Response("Error processing request", { status: 500 });
+    return new Response("Error processing request", {
+      status: 500,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
   }
 });
