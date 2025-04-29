@@ -18,18 +18,27 @@ export default function PlanForm() {
   });
 
   const [loading, setLoading] = useState(false);
-  const [schedule, setSchedule] = useState("");
+  const [schedule, setSchedule] = useState([]);
 
   useEffect(() => {
     const savedEventType = localStorage.getItem("eventType");
     const savedResponses = localStorage.getItem("responses");
-    const savedSchedule = localStorage.getItem("schedule");
+    const savedScheduleRaw = localStorage.getItem("schedule");
 
     if (savedEventType) setEventType(savedEventType);
     if (savedResponses) setResponses(JSON.parse(savedResponses));
-    if (savedSchedule) setSchedule(savedSchedule);
-  }, []);
 
+    if (savedScheduleRaw) {
+      try {
+        const parsed = JSON.parse(savedScheduleRaw);
+        if (Array.isArray(parsed)) {
+          setSchedule(parsed);
+        }
+      } catch (e) {
+        console.warn("Could not parse saved schedule from LocalStorage", e);
+      }
+    }
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -38,34 +47,41 @@ export default function PlanForm() {
     localStorage.setItem("responses", JSON.stringify(updatedResponses));
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch("http://localhost:8000/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ eventType, responses }),
+      });
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  try {
-    const res = await fetch("http://localhost:8000/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ eventType, responses }),
-    });
+      if (!res.ok) {
+        throw new Error("Server error");
+      }
 
-    if (!res.ok) {
-      throw new Error("Server error");
+      const data = await res.json();
+
+      // Parse structured JSON from OpenAI
+      try {
+        const structuredSchedule = JSON.parse(data.schedule);
+        setSchedule(structuredSchedule);
+        localStorage.setItem("schedule", JSON.stringify(structuredSchedule));
+        toast.success("✅ Schedule generated successfully!");
+      } catch (parseError) {
+        console.error("Failed to parse OpenAI schedule:", parseError);
+        toast.error("❌ Failed to parse generated schedule.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("❌ Failed to generate schedule. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    const data = await res.json();
-    setSchedule(data.schedule);
-    localStorage.setItem("schedule", data.schedule);
-    toast.success("✅ Schedule generated successfully!");
-  } catch (err) {
-    console.error(err);
-    toast.error("❌ Failed to generate schedule. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="max-w-2xl w-full mx-auto p-8 bg-white rounded-2xl shadow-2xl">
@@ -145,51 +161,34 @@ const handleSubmit = async (e) => {
         </button>
       </form>
 
-      {schedule && (
+      {Array.isArray(schedule) && schedule.length > 0 && (
         <div className="mt-10 space-y-8">
-          {schedule
-            .split("DAY")
-            .filter(Boolean)
-            .map((daySchedule, index) => {
-              const [dayHeaderLine, ...activitiesLines] = daySchedule
-                .trim()
-                .split("\n\n");
-              return (
-                <div
-                  key={index}
-                  className="p-6 bg-gray-100 rounded-2xl shadow-inner"
-                >
-                  <h2 className="text-2xl font-bold text-blue-700 mb-4">
-                    DAY {dayHeaderLine.trim()}
-                  </h2>
+          {schedule.map((dayObj, index) => (
+            <div
+              key={index}
+              className="p-6 bg-gray-100 rounded-2xl shadow-inner"
+            >
+              <h2 className="text-2xl font-bold text-blue-700 mb-4">
+                {dayObj.day}
+              </h2>
 
-                  <div className="space-y-4">
-                    {activitiesLines.map((activity, idx) => {
-                      const parts = activity.split("\n- Notes:");
-                      const timeAndTitle = parts[0].trim();
-                      const notes = parts[1]?.trim() || "";
-
-                      return (
-                        <div
-                          key={idx}
-                          className="p-4 bg-white rounded-lg shadow"
-                        >
-                          <p className="font-semibold text-gray-800">
-                            {timeAndTitle}
-                          </p>
-                          {notes && (
-                            <p className="text-sm text-gray-600 mt-2">
-                              <span className="font-semibold">Notes:</span>{" "}
-                              {notes}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
+              <div className="space-y-4">
+                {dayObj.activities.map((activity, idx) => (
+                  <div key={idx} className="p-4 bg-white rounded-lg shadow">
+                    <p className="font-semibold text-gray-800">
+                      {activity.time} — {activity.title}
+                    </p>
+                    {activity.notes && (
+                      <p className="text-sm text-gray-600 mt-2">
+                        <span className="font-semibold">Notes:</span>{" "}
+                        {activity.notes}
+                      </p>
+                    )}
                   </div>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

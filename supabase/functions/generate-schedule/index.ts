@@ -26,16 +26,34 @@ Deno.serve(async (req) => {
       return new Response("Missing eventType or responses", { status: 400 });
     }
 
-    const prompt = `
-You are an expert event planner creating a detailed, realistic, and creative agenda.
-The event is a: ${eventType}.
-Here are the details provided:
+  const prompt = `
+You are an expert event planner.
 
+Based on the provided event information below, generate a detailed and realistic 3-day event schedule.
+
+⚡ Important: RETURN ONLY STRUCTURED JSON in the following format:
+
+[
+  {
+    "day": "Day 1: (example: October 12)",
+    "activities": [
+      {
+        "time": "(example: 7:30AM - 9:00AM)",
+        "title": "(activity title)",
+        "notes": "(short notes about the activity)"
+      },
+      ...
+    ]
+  },
+  ...
+]
+
+Event Type: ${eventType}
+
+Event Details:
 ${Object.entries(responses)
   .map(([key, value]) => `- ${key.replace(/_/g, " ")}: ${value}`)
   .join("\n")}
-
-Please output a structured agenda with times, activities, and notes in a clear format.
 `;
 
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
