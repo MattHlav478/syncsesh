@@ -19,6 +19,10 @@ export default function PlanForm() {
 
   const [loading, setLoading] = useState(false);
   const [schedule, setSchedule] = useState([]);
+  const [menuOpenIndex, setMenuOpenIndex] = useState(null);
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editBuffer, setEditBuffer] = useState({});
+
 
   useEffect(() => {
     const savedEventType = localStorage.getItem("eventType");
@@ -161,31 +165,157 @@ export default function PlanForm() {
         </button>
       </form>
 
-      {Array.isArray(schedule) && schedule.length > 0 && (
+      {schedule && (
         <div className="mt-10 space-y-8">
-          {schedule.map((dayObj, index) => (
+          {schedule.map((day, dayIndex) => (
             <div
-              key={index}
+              key={dayIndex}
               className="p-6 bg-gray-100 rounded-2xl shadow-inner"
             >
               <h2 className="text-2xl font-bold text-blue-700 mb-4">
-                {dayObj.day}
+                {day.day}
               </h2>
 
               <div className="space-y-4">
-                {dayObj.activities.map((activity, idx) => (
-                  <div key={idx} className="p-4 bg-white rounded-lg shadow">
-                    <p className="font-semibold text-gray-800">
-                      {activity.time} — {activity.title}
-                    </p>
-                    {activity.notes && (
-                      <p className="text-sm text-gray-600 mt-2">
-                        <span className="font-semibold">Notes:</span>{" "}
-                        {activity.notes}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                {day.activities.map((activity, idx) => {
+                  const uniqueKey = `${dayIndex}-${idx}`;
+                  const isEditing = editingIndex === uniqueKey;
+                  // const [edited, setEdited] = useState({ ...activity });
+
+                  return (
+                    <div
+                      key={uniqueKey}
+                      className="relative p-6 bg-white rounded-xl shadow hover:shadow-lg transition duration-200 group"
+                    >
+                      {/* Options button */}
+                      <button
+                        onClick={() =>
+                          setMenuOpenIndex(
+                            menuOpenIndex === uniqueKey ? null : uniqueKey
+                          )
+                        }
+                        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6-2a2 2 0 100 4 2 2 0 000-4zm6 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </button>
+
+                      {/* Dropdown menu */}
+                      {menuOpenIndex === uniqueKey && (
+                        <div className="absolute top-10 right-4 bg-white border rounded shadow-md z-10 text-sm">
+                          <button
+                            onClick={() => {
+                              setMenuOpenIndex(null);
+                              setEditingIndex(uniqueKey);
+                              setEditBuffer({ ...activity });
+                            }}
+                            className="block w-full px-4 py-2 text-left hover:bg-gray-100"
+                          >
+                            ✏️ Edit Activity
+                          </button>
+                          <button
+                            onClick={() => {
+                              setMenuOpenIndex(null);
+                              console.log("Regenerate activity", activity);
+                            }}
+                            className="block w-full px-4 py-2 text-left hover:bg-gray-100"
+                          >
+                            🔄 Regenerate with GPT
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Editable or static view */}
+                      {isEditing ? (
+                        <>
+                          <div className="space-y-3">
+                            <input
+                              type="text"
+                              value={editBuffer.time}
+                              onChange={(e) =>
+                                setEditBuffer({
+                                  ...editBuffer,
+                                  time: e.target.value,
+                                })
+                              }
+                              className="w-full p-2 border border-gray-300 rounded"
+                              placeholder="Time"
+                            />
+                            <input
+                              type="text"
+                              value={editBuffer.title}
+                              onChange={(e) =>
+                                setEditBuffer({
+                                  ...editBuffer,
+                                  title: e.target.value,
+                                })
+                              }
+                              className="w-full p-2 border border-gray-300 rounded"
+                              placeholder="Title"
+                            />
+                            <textarea
+                              value={editBuffer.notes}
+                              onChange={(e) =>
+                                setEditBuffer({
+                                  ...editBuffer,
+                                  notes: e.target.value,
+                                })
+                              }
+                              className="w-full p-2 border border-gray-300 rounded"
+                              placeholder="Notes"
+                            />
+                          </div>
+
+                          <div className="mt-3 flex justify-end gap-2">
+                            <button
+                              className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                              onClick={() => setEditingIndex(null)}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                              onClick={() => {
+                                const newSchedule = [...schedule];
+                                newSchedule[dayIndex].activities[idx] =
+                                  editBuffer;
+                                setSchedule(newSchedule);
+                                localStorage.setItem(
+                                  "schedule",
+                                  JSON.stringify(newSchedule)
+                                );
+                                setEditingIndex(null);
+                              }}
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-gray-500">
+                            {activity.time}
+                          </p>
+                          <h3 className="text-lg font-semibold text-gray-800">
+                            {activity.title}
+                          </h3>
+                          {activity.notes && (
+                            <p className="mt-3 text-gray-600 text-sm leading-relaxed">
+                              <span className="font-semibold">Notes:</span>{" "}
+                              {activity.notes}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
