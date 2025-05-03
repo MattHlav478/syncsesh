@@ -3,176 +3,140 @@ import "https://deno.land/std@0.223.0/dotenv/load.ts";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
+  const url = new URL(req.url);
+
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
-    });
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  if (!OPENAI_API_KEY) {
+    return new Response("Missing API key", { status: 500, headers: corsHeaders });
   }
 
   try {
-    if (!OPENAI_API_KEY) {
-      return new Response("OpenAI API key is not configured.", { status: 500 });
-    }
+    if (url.pathname === "/regenerate-activity") {
+      const { activity, prompt, day } = await req.json();
 
-    const url = new URL(req.url);
-
-    // === 🧠 FULL SCHEDULE GENERATION ===
-    if (req.method === "POST" && url.pathname === "/") {
-      const { eventType, responses } = await req.json();
-
-      if (!eventType || !responses) {
-        return new Response("Missing eventType or responses", { status: 400 });
-      }
-
-      // Estimate number of days from date string like "October 12–14"
-      const dateRange = responses.dates_duration || "";
-      const daysMatch = dateRange.match(/\b(\d{1,2})\b/g);
-      const numDays = daysMatch && daysMatch.length >= 2
-        ? parseInt(daysMatch[1]) - parseInt(daysMatch[0]) + 1
-        : 3;
-
-      const prompt = `
+      const userPrompt = `
 You are an expert event planner.
 
-Create a realistic ${numDays}-day schedule in this JSON format:
+You're given a specific event agenda item and the user's custom request for how to regenerate it.
 
+Return ONLY the modified activity object as JSON like this:
+{
+  "time": "...",
+  "title": "...",
+  "notes": "..."
+}
+
+Event day: ${day}
+
+Original activity:
+- time: ${activity.time}
+- title: ${activity.title}
+- notes: ${activity.notes}
+
+User wants: ${prompt}
+`;
+
+      const gptRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: "You are a highly skilled event planner." },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.7,
+        }),
+      });
+
+      const { choices } = await gptRes.json();
+      const content = choices?.[0]?.message?.content || "{}";
+      const parsed = JSON.parse(content);
+
+      return new Response(JSON.stringify({ activity: parsed }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      });
+    }
+
+    // default "/" route
+    const { eventType, responses } = await req.json();
+
+    const dateRange = responses?.dates_duration || "";
+    const estimatedDays = (dateRange.match(/–|-/g) || []).length > 0 ? 3 : 1;
+
+    const schedulePrompt = `
+You are an expert event planner.
+
+Based on the provided event information below, generate a detailed and realistic ${estimatedDays}-day event schedule.
+
+⚡ Important: RETURN ONLY STRUCTURED JSON in the following format:
 [
   {
-    "day": "Day 1: October 12",
+    "day": "Day 1: (e.g. October 12)",
     "activities": [
       {
-        "time": "7:30AM - 9:00AM",
-        "title": "Breakfast",
-        "notes": "Vegetarian options available"
+        "time": "(e.g. 7:30AM - 9:00AM)",
+        "title": "(activity title)",
+        "notes": "(short notes about the activity)"
       }
     ]
   }
 ]
 
-ONLY return valid JSON — no extra text or explanation.
-
 Event Type: ${eventType}
-
-Details:
+Event Details:
 ${Object.entries(responses)
   .map(([key, value]) => `- ${key.replace(/_/g, " ")}: ${value}`)
   .join("\n")}
 `;
 
-      const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4",
-          messages: [
-            { role: "system", content: "You are a highly skilled event planning assistant. Return only JSON." },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.7,
-        }),
-      });
-
-      const { choices } = await openaiResponse.json();
-      const generatedSchedule = choices?.[0]?.message?.content || "[]";
-
-      return new Response(JSON.stringify({ schedule: generatedSchedule }), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      });
-    }
-
-    // === 🔁 REGENERATE A SINGLE ACTIVITY ===
-    if (req.method === "POST" && url.pathname === "/regenerate-activity") {
-      const { eventType, responses, dayIndex, activityIndex } = await req.json();
-
-      if (
-        eventType == null ||
-        !responses ||
-        typeof dayIndex !== "number" ||
-        typeof activityIndex !== "number"
-      ) {
-        return new Response("Missing required fields", { status: 400 });
-      }
-
-      const prompt = `
-You are an expert event planner.
-
-Regenerate one activity only. Format:
-
-{
-  "time": "7:30AM - 9:00AM",
-  "title": "Breakfast",
-  "notes": "Vegetarian options available"
-}
-
-ONLY return valid JSON. No explanation. No other text.
-
-Event Type: ${eventType}
-
-Details:
-${Object.entries(responses)
-  .map(([key, value]) => `- ${key.replace(/_/g, " ")}: ${value}`)
-  .join("\n")}
-
-Target:
-- Day Index: ${dayIndex}
-- Activity Index: ${activityIndex}
-`;
-
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4",
-          messages: [
-            { role: "system", content: "You return only strict JSON. No extra text." },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.7,
-        }),
-      });
-
-      const result = await response.json();
-      const activity = JSON.parse(result?.choices?.[0]?.message?.content || "{}");
-
-      return new Response(JSON.stringify({ activity }), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      });
-    }
-
-    // Fallback 404
-    return new Response("Not found", {
-      status: 404,
+    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
       headers: {
-        "Access-Control-Allow-Origin": "*",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: "You are a highly skilled event planning assistant." },
+          { role: "user", content: schedulePrompt },
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    const { choices } = await openaiRes.json();
+    const generatedSchedule = choices?.[0]?.message?.content || "[]";
+
+    return new Response(JSON.stringify({ schedule: generatedSchedule }), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        ...corsHeaders,
       },
     });
   } catch (err) {
-    console.error("Server error:", err);
-    return new Response("Internal server error", {
+    console.error(err);
+    return new Response("Error processing request", {
       status: 500,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: corsHeaders,
     });
   }
 });
