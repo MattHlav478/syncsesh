@@ -1,12 +1,22 @@
-import React from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "./utils/supabaseClient";
 import PlanForm from "./components/PlanForm/PlanForm";
+import AuthPage from "./components/AuthPage";
 
 function App() {
-  return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-8">
-      <PlanForm />
-    </div>
-  );
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => setSession(session));
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => setSession(session)
+    );
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  return session ? <PlanForm session={session} /> : <AuthPage />;
 }
 
 export default App;

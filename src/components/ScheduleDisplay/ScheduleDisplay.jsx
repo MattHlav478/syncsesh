@@ -1,109 +1,127 @@
-// ScheduleDisplay.jsx
-import React, { useState } from "react";
-import toast from "react-hot-toast";
+import { useEffect, useState } from "react";
 
-export default function ScheduleDisplay({ schedule, setSchedule }) {
-  const [menuOpenIndex, setMenuOpenIndex] = useState(null);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [editBuffer, setEditBuffer] = useState({});
+export default function ScheduleDisplay({ schedule, onEdit, onRegenerate }) {
   const [regeneratingIndex, setRegeneratingIndex] = useState(null);
-  const [customPrompt, setCustomPrompt] = useState("");
+  const [regeneratePrompt, setRegeneratePrompt] = useState("");
+  const [activeModal, setActiveModal] = useState(null);
+  const [highlightedIndex, setHighlightedIndex] = useState(null);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  useEffect(() => {
+    if (highlightedIndex !== null) {
+      const timeout = setTimeout(() => setHighlightedIndex(null), 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [highlightedIndex]);
 
-  const handleCopy = () => {
-    const plainText = schedule
-      .map((day) => {
-        const dayHeader = `${day.day}\n`;
-        const activities = day.activities
-          .map(
-            (act) => `- ${act.time}: ${act.title} (${act.notes || "No notes"})`
-          )
-          .join("\n");
-        return `${dayHeader}${activities}`;
-      })
-      .join("\n\n");
-
-    navigator.clipboard.writeText(plainText).then(() => {
-      toast.success("📋 Schedule copied to clipboard!");
-    });
-  };
-
-  const handleRegenerate = async (dayIndex, idx) => {
-    const activity = schedule[dayIndex].activities[idx];
-    const payload = {
-      day: schedule[dayIndex].day,
-      activity,
-      prompt: customPrompt,
-    };
-
+  const handleRegenerate = async (dayIndex, activityIndex) => {
+    setRegeneratingIndex(`${dayIndex}-${activityIndex}`);
     try {
       const res = await fetch("http://localhost:8000/regenerate-activity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          activity: schedule[dayIndex].activities[activityIndex],
+          day: schedule[dayIndex].day,
+          prompt: regeneratePrompt,
+        }),
       });
-
       const data = await res.json();
-
-      const updatedSchedule = [...schedule];
-      updatedSchedule[dayIndex].activities[idx] = data.activity;
-      setSchedule(updatedSchedule);
-      localStorage.setItem("schedule", JSON.stringify(updatedSchedule));
-      toast.success("Activity updated by GPT");
+      if (data.activity) {
+        const updated = [...schedule];
+        updated[dayIndex].activities[activityIndex] = data.activity;
+        onRegenerate(updated);
+        setHighlightedIndex(`${dayIndex}-${activityIndex}`);
+        localStorage.setItem("schedule", JSON.stringify(updated));
+      }
     } catch (err) {
-      toast.error("Failed to regenerate activity");
       console.error(err);
     } finally {
       setRegeneratingIndex(null);
-      setCustomPrompt("");
+      setActiveModal(null);
     }
   };
 
+  const handleCopy = () => {
+    const text = schedule
+      .map(
+        (day) =>
+          `\n${day.day}\n` +
+          day.activities
+            .map((a) => `- ${a.time}: ${a.title}\n  ${a.notes}`)
+            .join("\n")
+      )
+      .join("\n\n");
+    navigator.clipboard
+      .writeText(text)
+      .then(() => alert("Schedule copied to clipboard!"));
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank");
+    const html = `
+      <html>
+        <head><title>Printable Schedule</title></head>
+        <body style="font-family: sans-serif; padding: 20px;">
+          ${schedule
+            .map(
+              (day) => `
+            <h2>${day.day}</h2>
+            <ul>
+              ${day.activities
+                .map(
+                  (a) =>
+                    `<li><strong>${a.time}</strong>: ${a.title}<br/><em>${a.notes}</em></li>`
+                )
+                .join("")}
+            </ul>
+          `
+            )
+            .join("<hr/>")}
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   return (
-    <div className="mt-6">
-      <div className="flex justify-end gap-2 mb-6 print:hidden">
-        <button
-          onClick={handlePrint}
-          className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
-        >
-          🖨️ Print
-        </button>
+    <div className="mt-10 space-y-8">
+      <div className="flex justify-end gap-4">
         <button
           onClick={handleCopy}
-          className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm"
+          className="bg-gray-100 border px-4 py-2 rounded hover:bg-gray-200 text-sm"
         >
           📋 Copy
+        </button>
+        <button
+          onClick={handlePrint}
+          className="bg-gray-100 border px-4 py-2 rounded hover:bg-gray-200 text-sm"
+        >
+          🖨️ Print
         </button>
       </div>
 
       {schedule.map((day, dayIndex) => (
         <div
           key={dayIndex}
-          className="bg-white shadow rounded-lg p-4 mb-6 print:break-inside-avoid"
+          className="p-6 bg-gray-100 rounded-2xl shadow-inner"
         >
-          <h2 className="text-xl font-bold text-gray-800 mb-4">{day.day}</h2>
-          <ul className="space-y-4">
+          <h2 className="text-2xl font-bold text-blue-700 mb-4">{day.day}</h2>
+          <div className="space-y-4">
             {day.activities.map((activity, idx) => {
               const uniqueKey = `${dayIndex}-${idx}`;
-              const isEditing = editingIndex === uniqueKey;
-              const isRegenerating = regeneratingIndex === uniqueKey;
-
+              const isHighlighted = highlightedIndex === uniqueKey;
               return (
-                <li
+                <div
                   key={uniqueKey}
-                  className="relative bg-gray-100 rounded p-4 border border-gray-200"
+                  className={`relative p-6 bg-white rounded-xl shadow transition duration-300 ${
+                    isHighlighted ? "ring-2 ring-green-400" : "hover:shadow-lg"
+                  }`}
                 >
-                  {/* Dropdown trigger */}
                   <button
-                    onClick={() =>
-                      setMenuOpenIndex(
-                        menuOpenIndex === uniqueKey ? null : uniqueKey
-                      )
-                    }
-                    className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                    onClick={() => setActiveModal(uniqueKey)}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -115,142 +133,71 @@ export default function ScheduleDisplay({ schedule, setSchedule }) {
                     </svg>
                   </button>
 
-                  {/* Dropdown menu */}
-                  {menuOpenIndex === uniqueKey && (
-                    <div className="absolute top-8 right-2 bg-white border rounded shadow-md z-10 text-sm">
-                      <button
-                        onClick={() => {
-                          setMenuOpenIndex(null);
-                          setEditingIndex(uniqueKey);
-                          setEditBuffer({ ...activity });
-                        }}
-                        className="block w-full px-4 py-2 text-left hover:bg-gray-100"
-                      >
-                        ✏️ Edit Activity
-                      </button>
-                      <button
-                        onClick={() => {
-                          setMenuOpenIndex(null);
-                          setRegeneratingIndex(uniqueKey);
-                        }}
-                        className="block w-full px-4 py-2 text-left hover:bg-gray-100"
-                      >
-                        🔄 Regenerate with GPT
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Regenerate Modal */}
-                  {isRegenerating && (
-                    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-                      <div className="bg-white p-6 rounded-lg w-full max-w-md">
-                        <h2 className="text-lg font-bold mb-3">
-                          Custom GPT Prompt
-                        </h2>
-                        <textarea
-                          className="w-full border p-2 rounded mb-4"
-                          placeholder="e.g. Make this more interactive..."
-                          value={customPrompt}
-                          onChange={(e) => setCustomPrompt(e.target.value)}
-                        />
-                        <div className="flex justify-end gap-2">
-                          <button
-                            className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-                            onClick={() => {
-                              setRegeneratingIndex(null);
-                              setCustomPrompt("");
-                            }}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-                            onClick={() => handleRegenerate(dayIndex, idx)}
-                          >
-                            Regenerate
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Editable or static view */}
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={editBuffer.time}
-                        onChange={(e) =>
-                          setEditBuffer({ ...editBuffer, time: e.target.value })
-                        }
-                        className="w-full p-2 border border-gray-300 rounded"
-                        placeholder="Time"
-                      />
-                      <input
-                        type="text"
-                        value={editBuffer.title}
-                        onChange={(e) =>
-                          setEditBuffer({
-                            ...editBuffer,
-                            title: e.target.value,
-                          })
-                        }
-                        className="w-full p-2 border border-gray-300 rounded"
-                        placeholder="Title"
-                      />
+                  {activeModal === uniqueKey && (
+                    <div className="absolute z-50 bg-white border shadow rounded p-4 w-72 top-12 right-4">
+                      <h4 className="font-semibold text-gray-700 mb-2">
+                        Regenerate Activity
+                      </h4>
                       <textarea
-                        value={editBuffer.notes}
-                        onChange={(e) =>
-                          setEditBuffer({
-                            ...editBuffer,
-                            notes: e.target.value,
-                          })
-                        }
-                        className="w-full p-2 border border-gray-300 rounded"
-                        placeholder="Notes"
+                        value={regeneratePrompt}
+                        onChange={(e) => setRegeneratePrompt(e.target.value)}
+                        className="w-full p-2 border rounded mb-2"
+                        placeholder="e.g. make this a yoga class instead"
                       />
-                      <div className="flex justify-end gap-2 mt-2">
+                      <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => setEditingIndex(null)}
                           className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                          onClick={() => setActiveModal(null)}
                         >
                           Cancel
                         </button>
                         <button
-                          onClick={() => {
-                            const newSchedule = [...schedule];
-                            newSchedule[dayIndex].activities[idx] = editBuffer;
-                            setSchedule(newSchedule);
-                            localStorage.setItem(
-                              "schedule",
-                              JSON.stringify(newSchedule)
-                            );
-                            setEditingIndex(null);
-                          }}
-                          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm flex items-center"
+                          onClick={() => handleRegenerate(dayIndex, idx)}
+                          disabled={regeneratingIndex === uniqueKey}
                         >
-                          Save
+                          {regeneratingIndex === uniqueKey ? (
+                            <svg
+                              className="animate-spin h-4 w-4 mr-2 text-white"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v8H4z"
+                              ></path>
+                            </svg>
+                          ) : null}
+                          Regenerate
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <>
-                      <p className="text-sm text-gray-500">{activity.time}</p>
-                      <h3 className="text-lg font-semibold text-gray-800">
-                        {activity.title}
-                      </h3>
-                      {activity.notes && (
-                        <p className="mt-2 text-gray-600 text-sm leading-relaxed">
-                          <span className="font-semibold">Notes:</span>{" "}
-                          {activity.notes}
-                        </p>
-                      )}
-                    </>
                   )}
-                </li>
+
+                  <p className="text-sm text-gray-500">{activity.time}</p>
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    {activity.title}
+                  </h3>
+                  {activity.notes && (
+                    <p className="mt-2 text-gray-600 text-sm">
+                      <span className="font-semibold">Notes:</span>{" "}
+                      {activity.notes}
+                    </p>
+                  )}
+                </div>
               );
             })}
-          </ul>
+          </div>
         </div>
       ))}
     </div>
