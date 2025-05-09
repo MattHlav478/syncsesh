@@ -152,6 +152,7 @@ export default function DynamicEventForm({
                     className="p-2 border rounded"
                     placeholderText="Start date"
                   />
+
                   <DatePicker
                     selected={value?.[1] ? new Date(value[1]) : null}
                     onChange={(date) => {

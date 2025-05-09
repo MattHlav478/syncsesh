@@ -3,23 +3,15 @@ import { toast } from "react-hot-toast";
 import { supabase } from "../../utils/supabaseClient";
 import ScheduleList from "../ScheduleList/ScheduleList";
 import ScheduleDisplay from "../ScheduleDisplay/ScheduleDisplay";
+import DynamicEventForm from "../DynamicEventForm";
+import companyRetreatTemplate from "../../templates/companyRetreat.json";
+import wellnessDayTemplate from "../../templates/wellnessDay.json";
 
 export default function PlanForm({ session }) {
   const userId = session?.user?.id;
   const [eventType, setEventType] = useState("Company Retreat");
-  const [responses, setResponses] = useState({
-    retreat_goals: "Team bonding and strategic planning",
-    attendees: "25",
-    dates_duration: "October 12–14",
-    location: "Sedona, AZ",
-    tone: "Relaxed and motivating",
-    time_blocks: "Morning hikes, afternoon workshops",
-    team_building: "Escape room and cooking class",
-    external_facilitators: "yes",
-    budget: "$1000 per attendee",
-    accessibility: "ADA accessible rooms, vegetarian meals",
-  });
-
+  const [template, setTemplate] = useState(companyRetreatTemplate);
+  const [responses, setResponses] = useState({});
   const [loading, setLoading] = useState(false);
   const [schedule, setSchedule] = useState([]);
 
@@ -33,9 +25,26 @@ export default function PlanForm({ session }) {
     const savedResponses = localStorage.getItem("responses");
     const savedScheduleRaw = localStorage.getItem("schedule");
 
-    if (savedEventType) setEventType(savedEventType);
-    if (savedResponses) setResponses(JSON.parse(savedResponses));
-    if (savedScheduleRaw) {
+    if (savedEventType) {
+      setEventType(savedEventType);
+      setTemplate(
+        savedEventType === "Wellness Day"
+          ? wellnessDayTemplate
+          : companyRetreatTemplate
+      );
+    }
+
+    // ✅ Only parse if it's valid JSON (not undefined or literal string "undefined")
+    if (savedResponses && savedResponses !== "undefined") {
+      try {
+        const parsed = JSON.parse(savedResponses);
+        setResponses(parsed);
+      } catch (e) {
+        console.error("Invalid JSON in saved responses:", e);
+      }
+    }
+
+    if (savedScheduleRaw && savedScheduleRaw !== "undefined") {
       try {
         const parsed = JSON.parse(savedScheduleRaw);
         if (Array.isArray(parsed)) setSchedule(parsed);
@@ -45,11 +54,12 @@ export default function PlanForm({ session }) {
     }
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    const updatedResponses = { ...responses, [name]: value };
-    setResponses(updatedResponses);
-    localStorage.setItem("responses", JSON.stringify(updatedResponses));
+  const handleEventChange = (type) => {
+    setEventType(type);
+    setTemplate(
+      type === "Wellness Day" ? wellnessDayTemplate : companyRetreatTemplate
+    );
+    localStorage.setItem("eventType", type);
   };
 
   const handleSubmit = async (e) => {
@@ -71,7 +81,6 @@ export default function PlanForm({ session }) {
       localStorage.setItem("schedule", JSON.stringify(structuredSchedule));
       toast.success("✅ Schedule generated successfully!");
 
-      // Save to Supabase
       const { error: dbError } = await supabase.from("schedules").insert({
         user_id: userId,
         event_type: eventType,
@@ -111,35 +120,24 @@ export default function PlanForm({ session }) {
             <label className="block text-sm font-semibold text-gray-600 mb-1">
               Event Type
             </label>
-            <input
-              type="text"
+            <select
               value={eventType}
-              onChange={(e) => {
-                setEventType(e.target.value);
-                localStorage.setItem("eventType", e.target.value);
-              }}
+              onChange={(e) => handleEventChange(e.target.value)}
               className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent p-3"
-              required
-            />
+            >
+              <option value="Company Retreat">Company Retreat</option>
+              <option value="Wellness Day">Wellness Day</option>
+            </select>
           </div>
 
-          {Object.keys(responses).map((key) => (
-            <div key={key}>
-              <label className="block text-sm font-semibold text-gray-600 mb-1">
-                {key
-                  .replace(/_/g, " ")
-                  .replace(/\b\w/g, (l) => l.toUpperCase())}
-              </label>
-              <input
-                type="text"
-                name={key}
-                value={responses[key]}
-                onChange={handleChange}
-                className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent p-3"
-                required
-              />
-            </div>
-          ))}
+          <DynamicEventForm
+            template={template}
+            responses={responses}
+            setResponses={(updated) => {
+              setResponses(updated);
+              localStorage.setItem("responses", JSON.stringify(updated));
+            }}
+          />
         </div>
 
         <button
