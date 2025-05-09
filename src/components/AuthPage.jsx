@@ -1,11 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../utils/supabaseClient";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState("login"); // or 'signup'
+  const [mode, setMode] = useState("login");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session) {
+        toast.success("You're already logged in");
+        navigate("/");
+      }
+    };
+
+    checkSession();
+  }, [navigate]);
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -22,18 +40,21 @@ export default function AuthPage() {
         email,
         password,
         options: {
-          emailRedirectTo: window.location.origin, // Optional
+          emailRedirectTo: window.location.origin,
         },
       }));
     }
 
-    if (error) alert(error.message);
-    else
-      alert(
-        `Check your inbox to ${
-          mode === "signup" ? "confirm your account" : "log in"
-        }.`
-      );
+    if (error) {
+      toast.error(error.message);
+    } else {
+      if (mode === "login") {
+        toast.success("Logged in successfully!");
+        navigate("/");
+      } else {
+        toast.success("Check your inbox to confirm your account.");
+      }
+    }
 
     setLoading(false);
   };
