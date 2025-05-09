@@ -42,18 +42,23 @@ export default function ScheduleDisplay({ schedule, onEdit, onRegenerate }) {
   };
 
   const handleCopy = () => {
-    const text = schedule
-      .map(
-        (day) =>
-          `\n${day.day}\n` +
-          day.activities
-            .map((a) => `- ${a.time}: ${a.title}\n  ${a.notes}`)
-            .join("\n")
-      )
+    if (!schedule || !Array.isArray(schedule)) return;
+
+    const formatted = schedule
+      .map((day) => {
+        const activitiesText = day.activities
+          .map((activity) => {
+            const notes = activity.notes ? `  Notes: ${activity.notes}` : "";
+            return `• ${activity.time} — ${activity.title}\n${notes}`;
+          })
+          .join("\n\n");
+
+        return `${day.day}\n${activitiesText}`;
+      })
       .join("\n\n");
-    navigator.clipboard
-      .writeText(text)
-      .then(() => alert("Schedule copied to clipboard!"));
+
+    navigator.clipboard.writeText(formatted);
+    toast.success("✅ Schedule copied to clipboard!");
   };
 
   const handlePrint = () => {
@@ -85,9 +90,38 @@ export default function ScheduleDisplay({ schedule, onEdit, onRegenerate }) {
     printWindow.print();
   };
 
+  const handleDownloadTxt = () => {
+    if (!schedule || !Array.isArray(schedule)) return;
+
+    const formatted = schedule
+      .map((day) => {
+        const activitiesText = day.activities
+          .map((activity) => {
+            const notes = activity.notes ? `  Notes: ${activity.notes}` : "";
+            return `• ${activity.time} — ${activity.title}\n${notes}`;
+          })
+          .join("\n\n");
+
+        return `${day.day}\n${activitiesText}`;
+      })
+      .join("\n\n");
+
+    const blob = new Blob([formatted], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Schedule-${Date.now()}.txt`; // Optional: use eventType or date here
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+
   return (
-    <div className="mt-10 space-y-8">
-      <div className="flex justify-end gap-4">
+    <div className="mt-10 space-y-8 print-clean print-full">
+      <div className="flex justify-end gap-4 no-print">
         <button
           onClick={handleCopy}
           className="bg-gray-100 border px-4 py-2 rounded hover:bg-gray-200 text-sm"
@@ -99,6 +133,12 @@ export default function ScheduleDisplay({ schedule, onEdit, onRegenerate }) {
           className="bg-gray-100 border px-4 py-2 rounded hover:bg-gray-200 text-sm"
         >
           🖨️ Print
+        </button>
+        <button
+          onClick={handleDownloadTxt}
+          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+        >
+          📄 Download .txt
         </button>
       </div>
 

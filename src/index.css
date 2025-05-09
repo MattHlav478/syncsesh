@@ -1,3 +1,34 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@media print {
+  body {
+    background: white !important;
+  }
+
+  /* Hide all buttons and UI chrome */
+  button,
+  .no-print,
+  .print-hidden {
+    display: none !important;
+  }
+
+  /* Optional: remove box shadows, borders */
+  .print-clean {
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Optional: widen layout for print */
+  .print-full {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .print-heading {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+}
