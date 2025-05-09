@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { supabase } from "../../utils/supabaseClient";
 import ScheduleList from "../ScheduleList/ScheduleList";
-import ScheduleDisplay from "../ScheduleDisplay/ScheduleDisplay";
 import DynamicEventForm from "../DynamicEventForm";
+import ScheduleDisplay from "../ScheduleDisplay/ScheduleDisplay";
 import companyRetreatTemplate from "../../templates/companyRetreat.json";
 import wellnessDayTemplate from "../../templates/wellnessDay.json";
 
@@ -12,8 +12,33 @@ export default function PlanForm({ session }) {
   const [eventType, setEventType] = useState("Company Retreat");
   const [template, setTemplate] = useState(companyRetreatTemplate);
   const [responses, setResponses] = useState({});
-  const [loading, setLoading] = useState(false);
   const [schedule, setSchedule] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+
+  const steps = [
+    {
+      name: "Event Basics",
+      fields: ["event_type", "retreat_goals", "attendees"],
+    },
+    {
+      name: "Schedule Details",
+      fields: ["dates_duration", "time_blocks"],
+    },
+    {
+      name: "Preferences",
+      fields: ["tone", "team_building", "external_facilitators"],
+    },
+    {
+      name: "Logistics & Budget",
+      fields: ["location", "budget", "accessibility"],
+    },
+  ];
+
+  const currentFields = template.filter((f) =>
+    steps[step].fields.includes(f.name)
+  );
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -34,7 +59,6 @@ export default function PlanForm({ session }) {
       );
     }
 
-    // ✅ Only parse if it's valid JSON (not undefined or literal string "undefined")
     if (savedResponses && savedResponses !== "undefined") {
       try {
         const parsed = JSON.parse(savedResponses);
@@ -54,16 +78,7 @@ export default function PlanForm({ session }) {
     }
   }, []);
 
-  const handleEventChange = (type) => {
-    setEventType(type);
-    setTemplate(
-      type === "Wellness Day" ? wellnessDayTemplate : companyRetreatTemplate
-    );
-    localStorage.setItem("eventType", type);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setLoading(true);
     try {
       const res = await fetch("http://localhost:8000/", {
@@ -75,7 +90,6 @@ export default function PlanForm({ session }) {
       if (!res.ok) throw new Error("Server error");
 
       const data = await res.json();
-      console.log("Raw schedule response:", data.schedule);
       const structuredSchedule = JSON.parse(data.schedule);
       setSchedule(structuredSchedule);
       localStorage.setItem("schedule", JSON.stringify(structuredSchedule));
@@ -94,6 +108,8 @@ export default function PlanForm({ session }) {
       } else {
         toast.success("💾 Schedule saved to database!");
       }
+
+      setSubmitted(true);
     } catch (err) {
       console.error(err);
       toast.error("❌ Failed to generate schedule. Please try again.");
@@ -114,70 +130,72 @@ export default function PlanForm({ session }) {
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-gray-600 mb-1">
-              Event Type
-            </label>
-            <select
-              value={eventType}
-              onChange={(e) => handleEventChange(e.target.value)}
-              className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent p-3"
+      {/* Step Progress Indicator */}
+      <div className="flex justify-between items-center mb-8">
+        {steps.map((s, idx) => (
+          <div key={s.name} className="flex-1 text-center">
+            <div
+              className={`w-8 h-8 mx-auto mb-1 rounded-full flex items-center justify-center text-sm font-semibold ${
+                idx === step
+                  ? "bg-blue-500 text-white"
+                  : idx < step
+                  ? "bg-green-400 text-white"
+                  : "bg-gray-200 text-gray-600"
+              }`}
             >
-              <option value="Company Retreat">Company Retreat</option>
-              <option value="Wellness Day">Wellness Day</option>
-            </select>
-          </div>
-
-          <DynamicEventForm
-            template={template}
-            responses={responses}
-            setResponses={(updated) => {
-              setResponses(updated);
-              localStorage.setItem("responses", JSON.stringify(updated));
-            }}
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="w-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-semibold p-3 rounded-lg transition duration-200 ease-in-out transform hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
-          disabled={loading}
-        >
-          {loading ? (
-            <div className="flex items-center justify-center">
-              <svg
-                className="animate-spin h-5 w-5 mr-2 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8H4z"
-                ></path>
-              </svg>
-              Generating...
+              {idx + 1}
             </div>
-          ) : (
-            "Generate Schedule"
-          )}
-        </button>
-      </form>
+            <div className="text-xs text-gray-600">{s.name}</div>
+          </div>
+        ))}
+      </div>
 
-      {schedule?.length > 0 && (
+      {!submitted ? (
+        <div className="overflow-hidden transition-all duration-500 ease-in-out transform">
+          <div key={step} className="transition-opacity duration-300">
+            <h2 className="text-lg font-semibold text-gray-700 mb-4">
+              {steps[step].name}
+            </h2>
+            <DynamicEventForm
+              template={currentFields}
+              responses={responses}
+              setResponses={setResponses}
+            />
+
+            <div className="flex justify-between mt-6">
+              {step > 0 && (
+                <button
+                  onClick={() => setStep(step - 1)}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                >
+                  ← Back
+                </button>
+              )}
+
+              {step < steps.length - 1 ? (
+                <button
+                  onClick={() => setStep(step + 1)}
+                  className="ml-auto px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Next →
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="ml-auto px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                >
+                  {loading ? "Generating..." : "Generate Schedule"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
         <div className="mt-10">
-          <h2 className="text-xl font-semibold mb-2">Current Schedule</h2>
+          <h2 className="text-xl font-semibold mb-4 text-center text-green-600">
+            🎉 Schedule Generated!
+          </h2>
           <ScheduleDisplay schedule={schedule} setSchedule={setSchedule} />
         </div>
       )}

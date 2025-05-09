@@ -7,139 +7,112 @@ export default function DynamicEventForm({
   responses,
   setResponses,
 }) {
-  const handleChange = (name, value) => {
-    setResponses((prev) => ({ ...prev, [name]: value }));
+  const handleChange = (field, value) => {
+    const updated = { ...responses, [field]: value };
+    setResponses(updated);
+    localStorage.setItem("responses", JSON.stringify(updated));
   };
 
   return (
     <div className="space-y-6">
       {template.map((field) => {
-        const value = responses[field.name] || "";
+        const value = responses[field.name];
 
-        switch (field.type) {
-          case "text":
-            return (
-              <div key={field.name}>
-                <label className="block text-sm font-medium mb-1">
-                  {field.label}
-                </label>
-                <input
-                  type="text"
-                  placeholder={field.placeholder || ""}
-                  value={value}
-                  onChange={(e) => handleChange(field.name, e.target.value)}
-                  className="w-full p-3 border rounded"
-                />
+        return (
+          <div key={field.name} className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-700">
+              {field.label}
+            </label>
+
+            {field.type === "text" && (
+              <input
+                type="text"
+                placeholder={field.placeholder || ""}
+                value={value || ""}
+                onChange={(e) => handleChange(field.name, e.target.value)}
+                className="w-full p-3 border rounded shadow-sm"
+              />
+            )}
+
+            {field.type === "textarea" && (
+              <textarea
+                placeholder={field.placeholder || ""}
+                value={value || ""}
+                onChange={(e) => handleChange(field.name, e.target.value)}
+                className="w-full p-3 border rounded shadow-sm"
+              />
+            )}
+
+            {field.type === "number" && (
+              <input
+                type="number"
+                min={field.min}
+                max={field.max}
+                value={value || ""}
+                onChange={(e) => handleChange(field.name, e.target.value)}
+                className="w-full p-3 border rounded shadow-sm"
+              />
+            )}
+
+            {field.type === "select" && (
+              <select
+                value={value || ""}
+                onChange={(e) => handleChange(field.name, e.target.value)}
+                className="w-full p-3 border rounded shadow-sm"
+              >
+                <option value="">Select...</option>
+                {field.options.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {field.type === "multi_select" && (
+              <div className="flex flex-wrap gap-2">
+                {field.options.map((opt) => (
+                  <button
+                    type="button"
+                    key={opt}
+                    onClick={() => {
+                      const current = value || [];
+                      const updated = current.includes(opt)
+                        ? current.filter((o) => o !== opt)
+                        : [...current, opt];
+                      handleChange(field.name, updated);
+                    }}
+                    className={`px-3 py-1 rounded-full border text-sm transition ${
+                      value?.includes(opt)
+                        ? "bg-blue-500 text-white border-blue-500"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
               </div>
-            );
+            )}
 
-          case "textarea":
-            return (
-              <div key={field.name}>
-                <label className="block text-sm font-medium mb-1">
-                  {field.label}
-                </label>
-                <textarea
-                  placeholder={field.placeholder || ""}
-                  value={value}
-                  onChange={(e) => handleChange(field.name, e.target.value)}
-                  className="w-full p-3 border rounded"
-                />
-              </div>
-            );
-
-          case "number":
-            return (
-              <div key={field.name}>
-                <label className="block text-sm font-medium mb-1">
-                  {field.label}
-                </label>
-                <input
-                  type="number"
-                  value={value}
-                  min={field.min}
-                  max={field.max}
-                  onChange={(e) =>
-                    handleChange(field.name, Number(e.target.value))
-                  }
-                  className="w-full p-3 border rounded"
-                />
-              </div>
-            );
-
-          case "select":
-            return (
-              <div key={field.name}>
-                <label className="block text-sm font-medium mb-1">
-                  {field.label}
-                </label>
-                <select
-                  value={value}
-                  onChange={(e) => handleChange(field.name, e.target.value)}
-                  className="w-full p-3 border rounded"
-                >
-                  <option value="">Select an option</option>
-                  {field.options.map((opt) => (
-                    <option key={opt} value={opt}>
-                      {opt}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            );
-
-          case "multi_select":
-            return (
-              <div key={field.name}>
-                <label className="block text-sm font-medium mb-1">
-                  {field.label}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {field.options.map((opt) => {
-                    const selected = value?.includes(opt);
-                    return (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => {
-                          const newVal = selected
-                            ? value.filter((v) => v !== opt)
-                            : [...(value || []), opt];
-                          handleChange(field.name, newVal);
-                        }}
-                        className={`px-3 py-1 rounded-full border text-sm ${
-                          selected
-                            ? "bg-blue-500 text-white"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {opt}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-
-          case "boolean":
-            return (
-              <div key={field.name} className="flex items-center gap-2">
-                <label className="text-sm font-medium">{field.label}</label>
+            {field.type === "boolean" && (
+              <label className="inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
                   checked={!!value}
                   onChange={(e) => handleChange(field.name, e.target.checked)}
+                  className="sr-only peer"
                 />
-              </div>
-            );
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-400 rounded-full peer peer-checked:bg-blue-500 transition-all"></div>
+                <span className="ml-3 text-sm text-gray-600">
+                  {value ? "Yes" : "No"}
+                </span>
+              </label>
+            )}
 
-          case "date_range":
-            return (
-              <div key={field.name}>
-                <label className="block text-sm font-medium mb-1">
-                  {field.label}
-                </label>
-                <div className="flex gap-2">
+            {field.type === "date_range" && (
+              <div className="flex flex-col sm:flex-row gap-4 items-center">
+                <div className="flex flex-col">
+                  <span className="text-sm text-gray-500">Start</span>
                   <DatePicker
                     selected={value?.[0] ? new Date(value[0]) : null}
                     onChange={(date) => {
@@ -152,7 +125,9 @@ export default function DynamicEventForm({
                     className="p-2 border rounded"
                     placeholderText="Start date"
                   />
-
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm text-gray-500">End</span>
                   <DatePicker
                     selected={value?.[1] ? new Date(value[1]) : null}
                     onChange={(date) => {
@@ -167,11 +142,9 @@ export default function DynamicEventForm({
                   />
                 </div>
               </div>
-            );
-
-          default:
-            return null;
-        }
+            )}
+          </div>
+        );
       })}
     </div>
   );

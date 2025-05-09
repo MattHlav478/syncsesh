@@ -16,7 +16,10 @@ Deno.serve(async (req) => {
   }
 
   if (!OPENAI_API_KEY) {
-    return new Response("Missing API key", { status: 500, headers: corsHeaders });
+    return new Response("Missing API key", {
+      status: 500,
+      headers: corsHeaders,
+    });
   }
 
   try {
@@ -54,7 +57,10 @@ User wants: ${prompt}
         body: JSON.stringify({
           model: "gpt-4",
           messages: [
-            { role: "system", content: "You are a highly skilled event planner." },
+            {
+              role: "system",
+              content: "You are a highly skilled event planner.",
+            },
             { role: "user", content: userPrompt },
           ],
           temperature: 0.7,
@@ -77,7 +83,9 @@ User wants: ${prompt}
     // default "/" route
     const { eventType, responses } = await req.json();
 
-    const dateRange = responses?.dates_duration || "";
+    const dateRange = typeof responses?.dates_duration === "string"
+      ? responses.dates_duration
+      : "";
     const estimatedDays = (dateRange.match(/–|-/g) || []).length > 0 ? 3 : 1;
 
     const schedulePrompt = `
@@ -101,26 +109,34 @@ Based on the provided event information below, generate a detailed and realistic
 
 Event Type: ${eventType}
 Event Details:
-${Object.entries(responses)
-  .map(([key, value]) => `- ${key.replace(/_/g, " ")}: ${value}`)
-  .join("\n")}
+${
+      Object.entries(responses)
+        .map(([key, value]) => `- ${key.replace(/_/g, " ")}: ${value}`)
+        .join("\n")
+    }
 `;
 
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
+    const openaiRes = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4",
+          messages: [
+            {
+              role: "system",
+              content: "You are a highly skilled event planning assistant.",
+            },
+            { role: "user", content: schedulePrompt },
+          ],
+          temperature: 0.7,
+        }),
       },
-      body: JSON.stringify({
-        model: "gpt-4",
-        messages: [
-          { role: "system", content: "You are a highly skilled event planning assistant." },
-          { role: "user", content: schedulePrompt },
-        ],
-        temperature: 0.7,
-      }),
-    });
+    );
 
     const { choices } = await openaiRes.json();
     const generatedSchedule = choices?.[0]?.message?.content || "[]";
