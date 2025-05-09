@@ -1,79 +1,61 @@
-{
-  "eventType": "Wellness Day",
-  "description": "A single-day event focused on promoting physical, mental, and emotional well-being.",
-  "questions": [
-    {
-      "id": "goal",
-      "label": "What is the primary intention of your Wellness Day?",
-      "type": "text",
-      "placeholder": "e.g., stress relief, physical health, mental awareness",
-      "required": true
-    },
-    {
-      "id": "attendees",
-      "label": "How many attendees are expected?",
-      "type": "number",
-      "placeholder": "e.g., 25",
-      "required": true
-    },
-    {
-      "id": "date_duration",
-      "label": "What is the event date and how many hours should it last?",
-      "type": "text",
-      "placeholder": "e.g., July 18th, 9:00 AM – 3:00 PM",
-      "required": true
-    },
-    {
-      "id": "location",
-      "label": "Will the event be onsite, offsite, or virtual?",
-      "type": "select",
-      "options": ["Onsite", "Offsite", "Virtual"],
-      "required": true
-    },
-    {
-      "id": "tone",
-      "label": "What is the desired tone of the day?",
-      "type": "select",
-      "options": ["Calm", "Playful", "Restorative", "Motivational"],
-      "required": false
-    },
-    {
-      "id": "session_types",
-      "label": "What types of sessions are you interested in including?",
-      "type": "multiselect",
-      "options": [
-        "Yoga",
-        "Meditation",
-        "Nutrition Workshop",
-        "Keynote Speaker"
-      ],
-      "required": false
-    },
-    {
-      "id": "physical_activity",
-      "label": "Would you like to include any physical activity sessions?",
-      "type": "multiselect",
-      "options": ["Group Walk", "HIIT", "Dance", "Nature Hike"],
-      "required": false
-    },
-    {
-      "id": "meals",
-      "label": "Will meals or snacks be provided? Include any dietary restrictions.",
-      "type": "textarea",
-      "placeholder": "e.g., vegetarian, gluten-free, nut allergies",
-      "required": false
-    },
-    {
-      "id": "breaks",
-      "label": "Do you want to allow time for unstructured breaks or social time?",
-      "type": "yesno",
-      "required": false
-    },
-    {
-      "id": "team_elements",
-      "label": "Should the schedule include any team-based or collaborative elements?",
-      "type": "yesno",
-      "required": false
-    }
-  ]
-}
+[
+  {
+    "name": "wellness_focus",
+    "label": "Primary Focus",
+    "type": "select",
+    "options": [
+      "Mindfulness",
+      "Physical Activity",
+      "Nutrition",
+      "Creative Expression"
+    ],
+    "required": true
+  },
+  {
+    "name": "participants",
+    "label": "Number of Participants",
+    "type": "number",
+    "min": 5,
+    "max": 100,
+    "required": true
+  },
+  {
+    "name": "dates_duration",
+    "label": "Date",
+    "type": "date_range",
+    "required": true
+  },
+  {
+    "name": "location",
+    "label": "Location",
+    "type": "text",
+    "placeholder": "e.g. Wellness Center, Park, or Online",
+    "required": true
+  },
+  {
+    "name": "include_yoga",
+    "label": "Include Yoga Session?",
+    "type": "boolean",
+    "required": false
+  },
+  {
+    "name": "nutrition_options",
+    "label": "Nutrition Options",
+    "type": "multi_select",
+    "options": [
+      "Vegetarian",
+      "Vegan",
+      "Gluten-Free",
+      "Smoothie Bar",
+      "Meal Prep Workshop"
+    ],
+    "required": false
+  },
+  {
+    "name": "materials_needed",
+    "label": "Materials Needed",
+    "type": "textarea",
+    "placeholder": "e.g. Yoga mats, art supplies",
+    "required": false
+  }
+]

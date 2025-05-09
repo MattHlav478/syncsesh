@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.49.4",
     "openai": "^4.96.0",
     "react": "^19.0.0",
+    "react-datepicker": "^8.3.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.5.2"
   },

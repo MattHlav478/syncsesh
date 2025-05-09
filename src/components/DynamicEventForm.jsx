@@ -1,116 +1,177 @@
-import React, { useState } from "react";
+import React from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
-export default function DynamicEventForm({ template, onSubmit }) {
-  const [responses, setResponses] = useState({});
-
-  const handleChange = (id, value) => {
-    setResponses((prev) => ({ ...prev, [id]: value }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(responses); // send data to parent or API
-  };
-
-  const renderField = (q) => {
-    const commonProps = {
-      id: q.id,
-      name: q.id,
-      value: responses[q.id] || "",
-      onChange: (e) => handleChange(q.id, e.target.value),
-      required: q.required,
-      placeholder: q.placeholder || "",
-    };
-
-    switch (q.type) {
-      case "text":
-      case "number":
-        return (
-          <input
-            type={q.type}
-            {...commonProps}
-            className="border p-2 rounded w-full"
-          />
-        );
-      case "textarea":
-        return (
-          <textarea
-            {...commonProps}
-            rows={3}
-            className="border p-2 rounded w-full"
-          />
-        );
-      case "select":
-        return (
-          <select {...commonProps} className="border p-2 rounded w-full">
-            <option value="">Select...</option>
-            {q.options.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        );
-      case "multiselect":
-        return (
-          <select
-            {...commonProps}
-            multiple
-            value={responses[q.id] || []}
-            onChange={(e) => {
-              const options = Array.from(e.target.selectedOptions).map(
-                (opt) => opt.value
-              );
-              handleChange(q.id, options);
-            }}
-            className="border p-2 rounded w-full"
-          >
-            {q.options.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        );
-      case "yesno":
-        return (
-          <select {...commonProps} className="border p-2 rounded w-full">
-            <option value="">Select...</option>
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-        );
-      default:
-        return (
-          <input
-            type="text"
-            {...commonProps}
-            className="border p-2 rounded w-full"
-          />
-        );
-    }
+export default function DynamicEventForm({
+  template,
+  responses,
+  setResponses,
+}) {
+  const handleChange = (name, value) => {
+    setResponses((prev) => ({ ...prev, [name]: value }));
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-xl font-bold">{template.eventType}</h2>
-      <p className="text-gray-600">{template.description}</p>
+    <div className="space-y-6">
+      {template.map((field) => {
+        const value = responses[field.name] || "";
 
-      {template.questions.map((q) => (
-        <div key={q.id} className="flex flex-col">
-          <label htmlFor={q.id} className="font-medium mb-1">
-            {q.label}
-          </label>
-          {renderField(q)}
-        </div>
-      ))}
+        switch (field.type) {
+          case "text":
+            return (
+              <div key={field.name}>
+                <label className="block text-sm font-medium mb-1">
+                  {field.label}
+                </label>
+                <input
+                  type="text"
+                  placeholder={field.placeholder || ""}
+                  value={value}
+                  onChange={(e) => handleChange(field.name, e.target.value)}
+                  className="w-full p-3 border rounded"
+                />
+              </div>
+            );
 
-      <button
-        type="submit"
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      >
-        Generate Schedule
-      </button>
-    </form>
+          case "textarea":
+            return (
+              <div key={field.name}>
+                <label className="block text-sm font-medium mb-1">
+                  {field.label}
+                </label>
+                <textarea
+                  placeholder={field.placeholder || ""}
+                  value={value}
+                  onChange={(e) => handleChange(field.name, e.target.value)}
+                  className="w-full p-3 border rounded"
+                />
+              </div>
+            );
+
+          case "number":
+            return (
+              <div key={field.name}>
+                <label className="block text-sm font-medium mb-1">
+                  {field.label}
+                </label>
+                <input
+                  type="number"
+                  value={value}
+                  min={field.min}
+                  max={field.max}
+                  onChange={(e) =>
+                    handleChange(field.name, Number(e.target.value))
+                  }
+                  className="w-full p-3 border rounded"
+                />
+              </div>
+            );
+
+          case "select":
+            return (
+              <div key={field.name}>
+                <label className="block text-sm font-medium mb-1">
+                  {field.label}
+                </label>
+                <select
+                  value={value}
+                  onChange={(e) => handleChange(field.name, e.target.value)}
+                  className="w-full p-3 border rounded"
+                >
+                  <option value="">Select an option</option>
+                  {field.options.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+
+          case "multi_select":
+            return (
+              <div key={field.name}>
+                <label className="block text-sm font-medium mb-1">
+                  {field.label}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {field.options.map((opt) => {
+                    const selected = value?.includes(opt);
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => {
+                          const newVal = selected
+                            ? value.filter((v) => v !== opt)
+                            : [...(value || []), opt];
+                          handleChange(field.name, newVal);
+                        }}
+                        className={`px-3 py-1 rounded-full border text-sm ${
+                          selected
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+
+          case "boolean":
+            return (
+              <div key={field.name} className="flex items-center gap-2">
+                <label className="text-sm font-medium">{field.label}</label>
+                <input
+                  type="checkbox"
+                  checked={!!value}
+                  onChange={(e) => handleChange(field.name, e.target.checked)}
+                />
+              </div>
+            );
+
+          case "date_range":
+            return (
+              <div key={field.name}>
+                <label className="block text-sm font-medium mb-1">
+                  {field.label}
+                </label>
+                <div className="flex gap-2">
+                  <DatePicker
+                    selected={value?.[0] ? new Date(value[0]) : null}
+                    onChange={(date) => {
+                      const end = value?.[1] || null;
+                      handleChange(field.name, [date, end]);
+                    }}
+                    selectsStart
+                    startDate={value?.[0] ? new Date(value[0]) : null}
+                    endDate={value?.[1] ? new Date(value[1]) : null}
+                    className="p-2 border rounded"
+                    placeholderText="Start date"
+                  />
+                  <DatePicker
+                    selected={value?.[1] ? new Date(value[1]) : null}
+                    onChange={(date) => {
+                      const start = value?.[0] || null;
+                      handleChange(field.name, [start, date]);
+                    }}
+                    selectsEnd
+                    startDate={value?.[0] ? new Date(value[0]) : null}
+                    endDate={value?.[1] ? new Date(value[1]) : null}
+                    className="p-2 border rounded"
+                    placeholderText="End date"
+                  />
+                </div>
+              </div>
+            );
+
+          default:
+            return null;
+        }
+      })}
+    </div>
   );
 }

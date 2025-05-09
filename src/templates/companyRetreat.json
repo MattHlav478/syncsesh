@@ -1,75 +1,81 @@
-{
-  "eventType": "Company Retreat",
-  "description": "A multi-day retreat for employees to recharge, bond, and align on future goals.",
-  "questions": [
-    {
-      "id": "retreat_goals",
-      "label": "What are the main goals of the retreat?",
-      "type": "text",
-      "placeholder": "e.g., relaxation, team building, strategic planning",
-      "required": true
-    },
-    {
-      "id": "attendees",
-      "label": "How many people will attend?",
-      "type": "number",
-      "placeholder": "e.g., 40",
-      "required": true
-    },
-    {
-      "id": "dates_duration",
-      "label": "What are the dates and duration of the event?",
-      "type": "text",
-      "placeholder": "e.g., Sept 12–15 (3 days)",
-      "required": true
-    },
-    {
-      "id": "location",
-      "label": "Where is the retreat taking place?",
-      "type": "text",
-      "placeholder": "e.g., Asheville, NC, mountain lodge",
-      "required": true
-    },
-    {
-      "id": "tone",
-      "label": "What is the preferred tone?",
-      "type": "select",
-      "options": ["Relaxing", "Energizing", "Formal", "Playful"],
-      "required": false
-    },
-    {
-      "id": "time_blocks",
-      "label": "Are there specific time blocks you want to reserve?",
-      "type": "textarea",
-      "placeholder": "e.g., morning yoga, evening socials, no meetings after 6pm",
-      "required": false
-    },
-    {
-      "id": "team_building",
-      "label": "Do you want structured team-building activities? If so, how often?",
-      "type": "text",
-      "placeholder": "e.g., one per day, optional breakouts",
-      "required": false
-    },
-    {
-      "id": "external_facilitators",
-      "label": "Will there be external speakers or facilitators?",
-      "type": "yesno",
-      "required": false
-    },
-    {
-      "id": "budget",
-      "label": "What’s your estimated budget per attendee?",
-      "type": "text",
-      "placeholder": "e.g., $500–$700",
-      "required": false
-    },
-    {
-      "id": "accessibility",
-      "label": "Are there any accessibility or dietary requirements to consider?",
-      "type": "textarea",
-      "placeholder": "e.g., wheelchair access, vegan meals",
-      "required": false
-    }
-  ]
-}
+[
+  {
+    "name": "retreat_goals",
+    "label": "Retreat Goals",
+    "type": "textarea",
+    "placeholder": "e.g. Team bonding, strategic planning",
+    "required": true
+  },
+  {
+    "name": "attendees",
+    "label": "Number of Attendees",
+    "type": "number",
+    "min": 1,
+    "max": 200,
+    "required": true
+  },
+  {
+    "name": "dates_duration",
+    "label": "Date Range",
+    "type": "date_range",
+    "required": true
+  },
+  {
+    "name": "location",
+    "label": "Retreat Location",
+    "type": "text",
+    "placeholder": "e.g. Sedona, AZ",
+    "required": true
+  },
+  {
+    "name": "tone",
+    "label": "Desired Tone",
+    "type": "select",
+    "options": ["Relaxed", "Casual", "Focused", "Strategic", "Playful"],
+    "required": true
+  },
+  {
+    "name": "time_blocks",
+    "label": "Preferred Time Blocks",
+    "type": "multi_select",
+    "options": ["Morning", "Afternoon", "Evening"],
+    "required": false
+  },
+  {
+    "name": "team_building",
+    "label": "Team Building Activities",
+    "type": "multi_select",
+    "options": [
+      "Escape Room",
+      "Cooking Class",
+      "Scavenger Hunt",
+      "Group Hike",
+      "Improv Games"
+    ],
+    "required": false
+  },
+  {
+    "name": "external_facilitators",
+    "label": "External Facilitators?",
+    "type": "boolean",
+    "required": false
+  },
+  {
+    "name": "budget",
+    "label": "Budget (per attendee)",
+    "type": "text",
+    "placeholder": "$1000",
+    "required": false
+  },
+  {
+    "name": "accessibility",
+    "label": "Accessibility Requirements",
+    "type": "multi_select",
+    "options": [
+      "ADA Accessible Rooms",
+      "Vegetarian Meals",
+      "Low Mobility Activities"
+    ],
+    "required": false
+  }
+]
