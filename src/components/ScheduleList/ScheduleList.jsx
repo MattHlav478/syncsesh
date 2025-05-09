@@ -75,6 +75,21 @@ export default function ScheduleList({ userId, onLoadSchedule }) {
     }
   };
 
+  const handleDelete = async (id) => {
+    const confirm = window.confirm(
+      "Are you sure you want to delete this schedule?"
+    );
+    if (!confirm) return;
+
+    const { error } = await supabase.from("schedules").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete schedule.");
+    } else {
+      toast.success("Schedule deleted.");
+      setSchedules((prev) => prev.filter((s) => s.id !== id));
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto mt-8">
       <h2 className="text-xl font-bold mb-4">Your Saved Schedules</h2>
@@ -117,7 +132,7 @@ export default function ScheduleList({ userId, onLoadSchedule }) {
                     <p>
                       <strong>Tone:</strong> {sched.responses.tone}
                     </p>
-                    <div className="flex gap-4 mt-3">
+                    <div className="flex flex-wrap gap-4 mt-3">
                       <button
                         onClick={() => onLoadSchedule(sched.schedule)}
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -129,6 +144,12 @@ export default function ScheduleList({ userId, onLoadSchedule }) {
                         className="px-4 py-2 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200"
                       >
                         ✏️ Edit Metadata
+                      </button>
+                      <button
+                        onClick={() => handleDelete(sched.id)}
+                        className="px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200"
+                      >
+                        🗑 Delete
                       </button>
                     </div>
                   </div>
