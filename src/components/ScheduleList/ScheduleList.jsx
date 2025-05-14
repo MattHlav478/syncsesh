@@ -26,13 +26,28 @@ export default function ScheduleList({ userId, onLoadSchedule }) {
     if (userId) fetchSchedules();
   }, [userId]);
 
-  const getDateRange = (responses) => {
-    if (!responses?.dates_duration) return ["-", "-"];
-    const [start, end] = responses.dates_duration
-      .split(/[-–]/)
-      .map((s) => s.trim());
-    return [start, end || start];
-  };
+ const getDateRange = (responses) => {
+   const { dates_duration } = responses || {};
+   if (!dates_duration) return ["–", "–"];
+
+   // If using a structured object { start: string, end: string }
+   if (
+     typeof dates_duration === "object" &&
+     dates_duration.start &&
+     dates_duration.end
+   ) {
+     return [dates_duration.start, dates_duration.end];
+   }
+
+   // Fallback for legacy string format
+   if (typeof dates_duration === "string") {
+     const [start, end] = dates_duration.split(/[-–]/).map((s) => s.trim());
+     return [start, end || start];
+   }
+
+   return ["–", "–"];
+ };
+
 
   const openEditModal = (schedule) => {
     setEditData({

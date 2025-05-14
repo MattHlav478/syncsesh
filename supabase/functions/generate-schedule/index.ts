@@ -80,13 +80,34 @@ User wants: ${prompt}
       });
     }
 
-    // default "/" route
+    // Default "/" route for schedule generation
     const { eventType, responses } = await req.json();
 
-    const dateRange = typeof responses?.dates_duration === "string"
-      ? responses.dates_duration
-      : "";
-    const estimatedDays = (dateRange.match(/–|-/g) || []).length > 0 ? 3 : 1;
+    let estimatedDays = 1;
+    let readableDateRange = "";
+
+    if (
+      typeof responses?.dates_duration === "object" &&
+      responses.dates_duration?.startDate &&
+      responses.dates_duration?.endDate
+    ) {
+      const start = new Date(responses.dates_duration.startDate);
+      const end = new Date(responses.dates_duration.endDate);
+
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        estimatedDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+        const options: Intl.DateTimeFormatOptions = {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        };
+        const formattedStart = start.toLocaleDateString("en-US", options);
+        const formattedEnd = end.toLocaleDateString("en-US", options);
+        readableDateRange = `${formattedStart}–${formattedEnd}`;
+      }
+    }
 
     const schedulePrompt = `
 You are an expert event planner.
@@ -111,32 +132,37 @@ Event Type: ${eventType}
 Event Details:
 ${
       Object.entries(responses)
-        .map(([key, value]) => `- ${key.replace(/_/g, " ")}: ${value}`)
+        .map(([key, value]) => {
+          const label = key.replace(/_/g, " ");
+          const val = key === "dates_duration" && readableDateRange
+            ? readableDateRange
+            : typeof value === "object"
+              ? JSON.stringify(value)
+              : value;
+          return `- ${label}: ${val}`;
+        })
         .join("\n")
     }
 `;
 
-    const openaiRes = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content: "You are a highly skilled event planning assistant.",
-            },
-            { role: "user", content: schedulePrompt },
-          ],
-          temperature: 0.7,
-        }),
+    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: "You are a highly skilled event planning assistant.",
+          },
+          { role: "user", content: schedulePrompt },
+        ],
+        temperature: 0.7,
+      }),
+    });
 
     const { choices } = await openaiRes.json();
     const generatedSchedule = choices?.[0]?.message?.content || "[]";

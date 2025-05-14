@@ -29,34 +29,72 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true);
 
-    let data, error;
-    if (mode === "login") {
-      ({ data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      }));
-    } else {
-      ({ data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin,
-        },
-      }));
-    }
-
-    if (error) {
-      toast.error(error.message);
-    } else {
+    try {
       if (mode === "login") {
-        toast.success("Logged in successfully!");
-        navigate("/");
-      } else {
-        toast.success("Check your inbox to confirm your account.");
-      }
-    }
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-    setLoading(false);
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success("Logged in successfully!");
+          navigate("/");
+        }
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+        if (error) {
+          toast.error(error.message);
+          setLoading(false);
+          return;
+        }
+
+        if (data.user) {
+          const userId = data.user.id;
+
+          // 1. Create a new organization
+          const orgResult = await supabase
+            .from("organizations")
+            .insert({ name: `${email.split("@")[0]}'s Org` })
+            .select()
+            .single();
+
+          if (orgResult.error) {
+            console.error("Org creation failed", orgResult.error);
+            toast.error("Failed to create organization.");
+          } else {
+            const orgId = orgResult.data.id;
+
+            // 2. Create user profile linked to org
+            const userInsert = await supabase.from("users").insert([
+              {
+                id: userId,
+                email,
+                org_id: orgId,
+              },
+            ]);
+
+            if (userInsert.error) {
+              console.error("User insert failed", userInsert.error);
+              toast.error("Failed to link user to org.");
+            } else {
+              toast.success("Account created! You're now logged in.");
+              navigate("/");
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Unexpected error", err);
+      toast.error("An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
