@@ -97,7 +97,7 @@ User wants: ${prompt}
       if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
         const diffTime = Math.abs(end.getTime() - start.getTime());
         estimatedDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
+        console.log("Estimated days:", estimatedDays);
         const options: Intl.DateTimeFormatOptions = {
           month: "long",
           day: "numeric",
@@ -109,42 +109,50 @@ User wants: ${prompt}
       }
     }
 
-    const schedulePrompt = `
-You are an expert event planner.
+const schedulePrompt = `
+You are a professional event planner.
 
-Based on the provided event information below, generate a detailed and realistic ${estimatedDays}-day event schedule.
+You will generate a realistic and well-structured ${estimatedDays}-day event schedule based on the client's input. Each day must have multiple time-blocked activities with detailed notes.
 
-⚡ Important: RETURN ONLY STRUCTURED JSON in the following format:
+⚠️ VERY IMPORTANT: Return ONLY valid JSON in the following format. DO NOT include any commentary or explanation — only JSON:
+
 [
   {
-    "day": "Day 1: (e.g. October 12)",
+    "day": "Day 1: May 24, 2025",
     "activities": [
       {
-        "time": "(e.g. 7:30AM - 9:00AM)",
-        "title": "(activity title)",
-        "notes": "(short notes about the activity)"
+        "time": "7:30AM - 9:00AM",
+        "title": "Breakfast & Welcome",
+        "notes": "Buffet breakfast with vegan and gluten-free options available."
+      },
+      {
+        "time": "9:00AM - 11:00AM",
+        "title": "Opening Workshop",
+        "notes": "Led by external facilitator. Focus on strategic alignment."
+      }
+    ]
+  },
+  {
+    "day": "Day 2: May 25, 2025",
+    "activities": [
+      {
+        "time": "8:00AM - 9:00AM",
+        "title": "Morning Yoga",
+        "notes": "Outdoor yoga session with local instructor."
       }
     ]
   }
+  // Repeat this structure for all ${estimatedDays} days.
 ]
 
-Event Type: ${eventType}
-Event Details:
-${
-      Object.entries(responses)
-        .map(([key, value]) => {
-          const label = key.replace(/_/g, " ");
-          const val = key === "dates_duration" && readableDateRange
-            ? readableDateRange
-            : typeof value === "object"
-              ? JSON.stringify(value)
-              : value;
-          return `- ${label}: ${val}`;
-        })
-        .join("\n")
-    }
-`;
+Client Event Type: ${eventType}
 
+Client-Provided Details:
+${Object.entries(responses)
+  .map(([key, value]) => `- ${key.replace(/_/g, " ")}: ${value}`)
+  .join("\n")}
+`;
+    // console.log("Schedule prompt:", schedulePrompt);
     const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {

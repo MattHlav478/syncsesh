@@ -76,7 +76,22 @@ export default function PlanForm({ session }) {
       if (!res.ok) throw new Error("Failed to generate schedule");
 
       const data = await res.json();
-      const structured = JSON.parse(data.schedule);
+      const raw = data.schedule;
+
+      // Optional: Log GPT raw response for debugging
+      console.log("🔍 Raw GPT Response:", raw);
+
+      let structured;
+      try {
+        structured = JSON.parse(raw);
+        if (!Array.isArray(structured))
+          throw new Error("Parsed schedule is not an array");
+      } catch (err) {
+        console.error("❌ JSON parsing failed:", err);
+        toast.error("❌ Could not parse GPT response. Please try again.");
+        return;
+      }
+
       setSchedule(structured);
       localStorage.setItem("schedule", JSON.stringify(structured));
       toast.success("✅ Schedule generated successfully!");
@@ -88,9 +103,12 @@ export default function PlanForm({ session }) {
         schedule: structured,
       });
 
-      if (dbError) toast.error("⚠️ Could not save to database");
+      if (dbError) {
+        console.error("⚠️ Supabase insert error:", dbError);
+        toast.error("⚠️ Could not save to database");
+      }
     } catch (e) {
-      console.error(e);
+      console.error("❌ Request failed:", e);
       toast.error("❌ Failed to generate schedule");
     } finally {
       setLoading(false);
